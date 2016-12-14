@@ -2,9 +2,7 @@
 
 import pywikibot
 from pywikibot import pagegenerators
-import discogs_client
 from XmlArtistsParsing import read_xml_artists
-from pywikibot import Claim
 
 MEMBER_OF_PROP = "P463"
 NATIONALITY_PROP = "P27"
@@ -14,8 +12,41 @@ HAS_PART_OF_PROP = "P527"
 DATE_OF_BIRTH_PROP = "P569"
 DISCOGS_ARTIST_ID_PROP = "P1953"
 
-# cl = Claim()
-# cl.
+
+def get_group_sparql(group):
+    items = set()
+
+    # Check for music ensambles
+    sparql_query = 'SELECT ?item ' \
+               'WHERE {' \
+               ' ?item rdfs:label ' + '\'' + group + '\'@en' + '. ' \
+               ' ?item wdt:P31:P279* wd:Q2088357 . ' \
+               '}' \
+               'LIMIT 1000'
+    generator = pagegenerators.WikidataSPARQLPageGenerator(sparql_query, site=wd_site)
+    for item in generator:
+        item.get()
+        items.add(item)
+
+    return items
+
+
+def get_member_sparql(member):
+    items = set()
+
+    # Check for musicians
+    sparql_query = 'SELECT ?item ' \
+               'WHERE {' \
+               ' ?item rdfs:label ' + '\'' + member + '\'@en' + '. ' \
+               ' ?item wdt:P106/wdt:P279* wd:Q639669 . ' \
+               '}' \
+               'LIMIT 1000'
+    generator = pagegenerators.WikidataSPARQLPageGenerator(sparql_query, site=wd_site)
+    for item in generator:
+        item.get()
+        items.add(item)
+
+    return items
 
 
 def create_item(wd_site, repo, artist):
@@ -25,11 +56,45 @@ def create_item(wd_site, repo, artist):
 
     if len(artist.groups) > 0:
         for group in artist.groups:
-            new_claim = pywikibot.Claim(repo, MEMBER_OF_PROP)
+            new_group_claim = pywikibot.Claim(repo, MEMBER_OF_PROP)
+
+            group_list = get_group_sparql(group)
+
+            # This is for the case in which the group already exists
+            if len(group_list) == 1:
+                group_item = group_list.pop()
+                new_group_claim.setTarget(group_item)
+                new_item.addClaim(new_group_claim)
+
+                new_member_claim = pywikibot.Claim(repo, HAS_PART_OF_PROP)
+                new_member_claim.setTarget(new_item)
+                group_item.addClaim(new_member_claim)
+
+    if len(artist.members) > 0:
+        for member in artist.members:
+            new_member_claim = pywikibot.Claim(repo, HAS_PART_OF_PROP)
+
+            member_list = get_member_sparql(member)
+
+            # This is for the case in which the group already exists
+            if len(group_list) == 1:
+                member_item = pywikibot.ItemPage(group_list.pop())
+                member_item.get()
+                new_member_claim.setTarget(member_item)
+                new_item.addClaim(new_member_claim)
+
+                new_group_claim = pywikibot.Claim(repo, MEMBER_OF_PROP)
+                new_group_claim.setTarget(new_item)
+                member_item.addClaim(new_group_claim)
+
+    if artist.profile:
+        new_item.editDescriptions({"en": artist.profile})
+
+
 
     # Add description here or in another function
+    print new_item.getID(), (": " + artist.name + " created")
     return new_item.getID()
-
 
 
 def print_dict(dictionary, level=0):
@@ -72,7 +137,6 @@ def check_artist(artist, wd_site, repo):
                'LIMIT 1000'
         generator = pagegenerators.WikidataSPARQLPageGenerator(sparql_query, site=wd_site)
         for item in generator:
-            print "Here!"
             item.get()
             items.add(item)
 

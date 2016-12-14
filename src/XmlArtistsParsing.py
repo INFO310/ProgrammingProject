@@ -91,7 +91,7 @@ def read_xml_artists(filename):
         if event == 'start':
             if elem.tag == 'artist':
                 count += 1
-                print len(artists)
+                # print len(artists)
                 new_artist = XmlArtist()
 
             elif new_artist is not None and elem.tag == 'profile':
