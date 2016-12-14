@@ -17,7 +17,7 @@ print item.labels
 new_item = pywikibot.ItemPage(wd_site)
 new_item.editLabels(labels={"en": "Ciao"}, summary="Setting labels")
 new_item.editAliases(aliases={"en": ["Salve", "Buongiorno"]}, summary="Setting Aliases")
-new_item.editDescriptions({"en": "Italian Greeting"})
+# new_item.editDescriptions({"en": "Italian Greeting"})
 
 new_item.get()
 
@@ -28,8 +28,12 @@ print new_item.getID()
 new_claim = pywikibot.Claim(repo, "P63")
 wb_quant = pywikibot.WbQuantity(u'1234')
 new_claim.setTarget(wb_quant)
+new_claim5 = pywikibot.Claim(repo, "P63")
+wb_quant2 = pywikibot.WbQuantity(u'5678')
+new_claim5.setTarget(wb_quant2)
 
-new_item.addClaim(new_claim, bot=True) 
+new_item.addClaim(new_claim, bot=True)
+new_item.addClaim(new_claim5, bot=True)
 
 new_claim2 = pywikibot.Claim(repo, "P7")
 value_item = pywikibot.ItemPage(repo, "Q9")

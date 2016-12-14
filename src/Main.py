@@ -2,6 +2,7 @@
 
 import pywikibot
 from pywikibot import pagegenerators
+import discogs_client
 from XmlArtistsParsing import read_xml_artists
 
 MEMBER_OF_PROP = "P463"
@@ -11,6 +12,9 @@ INSTRUMENT_PROP = "P1303"
 HAS_PART_OF_PROP = "P527"
 DATE_OF_BIRTH_PROP = "P569"
 DISCOGS_ARTIST_ID_PROP = "P1953"
+
+user_agent = 'INFO310Project/0.1'
+user_token = 'JHLqrbdwbuolTUfCpmMuaiuZqLbDXBuJcdTBHNtG'
 
 
 def get_group_sparql(group):
@@ -49,7 +53,113 @@ def get_member_sparql(member):
     return items
 
 
+def get_occupation(artist):
+    return None
+
+
+def update_item(item, artist, wd_site, repo):
+    item.get()
+    names = [artist.name] + artist.aliases + artist.name_variations
+    aliases = item.aliases["en"] + [item.labels["en"]]
+    new_aliases = []
+
+    for alias in names:
+        if alias not in item.labels and alias not in item.aliases:
+            new_aliases.append(alias)
+
+    if len(new_aliases) > 0:
+        new_alias_dict = {"en": new_aliases}
+        print "Adding aliases to item"
+        print new_alias_dict
+        # item.editAliases(new_alias_dict)
+
+    # (Eventually) Adding who are the members of the group
+    if artist.members:
+        member_names = []
+        if item.claims.has_key(HAS_PART_OF_PROP):
+
+            # I get all the names and aliases of the partecipants of the group
+            for claim in item.claims[HAS_PART_OF_PROP]:
+                    member_item = claim.getTarget()
+                    member_item.get()
+                    member_names += [member_item.labels['en']] + member_item.aliases['en']
+
+        # If the member retrieved from discogs are not among the ones in wikidata, I add
+        # the member as a statement to the 'member of' property
+        for artist_member in artists.members:
+            if artist_member not in member_names:
+                new_member = get_member_sparql(artist_member)
+                if len(new_member) == 0:
+                    # create new member
+                    print "Member not existing, creating Member"
+                if len(new_member) == 1:
+                    member_entity = new_member.pop()
+                    new_member_claim = pywikibot.Claim(repo, HAS_PART_OF_PROP)
+                    new_member_claim.setTarget(member_entity)
+                    item.addClaim(new_member_claim)
+
+    # (Eventually) Adding to which group the artist belongs
+    if artist.groups:
+        group_names = []
+        if item.claims.has_key(MEMBER_OF_PROP):
+
+            # I get all the names and aliases of the partecipants of the group
+            for claim in item.claims[MEMBER_OF_PROP]:
+                    group_item = claim.getTarget()
+                    group_item.get()
+                    group_names += [group_item.labels['en']] + group_item.aliases['en']
+
+        # If the member retrieved from discogs are not among the ones in wikidata, I add
+        # the member as a statement to the 'member of' property
+        for artist_group in artists.groups:
+            if artist_group not in group_names:
+                new_group = get_group_sparql(artist_group)
+                if len(new_group) == 0:
+                    # create new group
+                    print "Group not existing, creating Group"
+                if len(new_group) == 1:
+                    group_entity = new_group.pop()
+                    new_group_claim = pywikibot.Claim(repo, MEMBER_OF_PROP)
+                    new_group_claim.setTarget(group_entity)
+                    item.addClaim(new_group_claim)
+
+    # Adding occupation of the artist
+    if not item.claims.has_key(OCCUPATION_PROP):
+
+        # This return the item associated with the new occupation of the artist
+        occupation = get_occupation(artist)
+        if occupation is not None:
+
+            new_occupation_claim = pywikibot.Claim(repo, OCCUPATION_PROP)
+            new_occupation_claim.setTarget(occupation)
+            item.addClaim(new_occupation_claim)
+
+    # Adding discogs id of the artist
+    if artist.id and not item.claims.has_key(DISCOGS_ARTIST_ID_PROP):
+
+        new_discogs_id_claim = pywikibot.Claim(repo, DISCOGS_ARTIST_ID_PROP)
+        new_discogs_id_claim.setTarget(artist.id)
+        item.addClaim(new_discogs_id_claim)
+
+    print "\n----\n"
+
+
+def check_artist_discogs(group):
+
+    # instantiate our discogs_client object.
+    client = discogs_client.Client(user_agent=user_agent, user_token=user_token)
+    results = client.search(group, type='artist')
+
+    if len(results) > 0:
+        artist = results[0]
+        if "Correct" in artist.data_quality:
+            return artist
+        else:
+            return None
+
+
 def create_item(wd_site, repo, artist):
+
     new_item = pywikibot.ItemPage(wd_site)
     new_item.editLabels(labels=artist.name, summary="Setting labels")
     new_item.editAliases(aliases=([artist.name_variations] + [artist.aliases]), summary="Setting Aliases")
@@ -60,15 +170,27 @@ def create_item(wd_site, repo, artist):
 
             group_list = get_group_sparql(group)
 
+            # This is the case in which the group does not exists
+            if len(group_list) == 0:
+                new_group_item = pywikibot.ItemPage(wd_site)
+                new_group_item.editLabels(labels=group, summary="Setting labels")
+                new_group_claim.setTarget(new_group_item)
+                new_item.addClaim(new_group_claim)
+
+                # get_artist = check_artist_discogs(group)
+                # if get_artist is not None
+                # update_item(new_group_item, get_artist, wd_site, repo)
+
             # This is for the case in which the group already exists
             if len(group_list) == 1:
                 group_item = group_list.pop()
                 new_group_claim.setTarget(group_item)
                 new_item.addClaim(new_group_claim)
 
-                new_member_claim = pywikibot.Claim(repo, HAS_PART_OF_PROP)
-                new_member_claim.setTarget(new_item)
-                group_item.addClaim(new_member_claim)
+                # ALSO TO THE GROUP IS UPDATED WITH THE MEMBER WHO PARTECIPATE TO IT
+                # new_member_claim = pywikibot.Claim(repo, HAS_PART_OF_PROP)
+                # new_member_claim.setTarget(new_item)
+                # group_item.addClaim(new_member_claim)
 
     if len(artist.members) > 0:
         for member in artist.members:
@@ -76,23 +198,37 @@ def create_item(wd_site, repo, artist):
 
             member_list = get_member_sparql(member)
 
+            # This is the case in which the group does not exists
+            if len(member_list) == 0:
+                new_member_item = pywikibot.ItemPage(wd_site)
+                new_member_item.editLabels(labels=member, summary="Setting labels")
+                new_member_claim.setTarget(new_member_item)
+                new_item.addClaim(new_member_claim)
+
+                # get_artist = check_artist_discogs(member)
+                # if get_artist is not None
+                #   update_item(new_member_item, get_artist, wd_site, repo)
+
             # This is for the case in which the group already exists
-            if len(group_list) == 1:
-                member_item = pywikibot.ItemPage(group_list.pop())
+            if len(member_list) == 1:
+                member_item = pywikibot.ItemPage(member_list.pop())
                 member_item.get()
                 new_member_claim.setTarget(member_item)
                 new_item.addClaim(new_member_claim)
 
-                new_group_claim = pywikibot.Claim(repo, MEMBER_OF_PROP)
-                new_group_claim.setTarget(new_item)
-                member_item.addClaim(new_group_claim)
+                # ALSO TO THE MEMBER IS UPDATED WITH THE GROUP TO WHICH THEY BELONG
+                # new_group_claim = pywikibot.Claim(repo, MEMBER_OF_PROP)
+                # new_group_claim.setTarget(new_item)
+                # member_item.addClaim(new_group_claim)
 
     if artist.profile:
         new_item.editDescriptions({"en": artist.profile})
 
+    if artist.id:
+        discogs_id_claim = pywikibot.Claim(repo, DISCOGS_ARTIST_ID_PROP)
+        discogs_id_claim.setTarget(artist.id)
+        new_item.addClaim(discogs_id_claim)
 
-
-    # Add description here or in another function
     print new_item.getID(), (": " + artist.name + " created")
     return new_item.getID()
 
@@ -148,62 +284,7 @@ def check_artist(artist, wd_site, repo):
     elif len(items) == 1:
         for item in items:
             # update item if needed
-            item.get()
-
-            new_aliases = []
-            print "ALIASES"
-            for alias in names:
-                if alias not in item.labels and alias not in item.aliases:
-                    new_aliases.append(alias)
-
-            if len(new_aliases) > 0:
-                new_alias_dict = {"en": new_aliases}
-                print new_alias_dict
-                # item.editAliases(new_alias_dict)
-            print item.labels
-
-            print "MEMBER_PROP START"
-            if item.claims.has_key(MEMBER_OF_PROP):
-                # check how to iterate through properties
-                for claim in item.claims[MEMBER_OF_PROP]:
-                    sub_item = claim.getTarget()
-                    sub_item.get()
-                    print sub_item.labels['en']
-
-            print "MEMBER_PROP END"
-            print "HAS_PART_OF_PROP START"
-            if item.claims.has_key(HAS_PART_OF_PROP):
-                for claim in item.claims[HAS_PART_OF_PROP]:
-                    sub_item = claim.getTarget()
-                    sub_item.get()
-                    print sub_item.labels['en']
-
-            print "HAS_PART_OF_PROP END"
-            print "OCCUPATION START"
-            if item.claims.has_key(OCCUPATION_PROP):
-                for claim in item.claims[OCCUPATION_PROP]:
-                    sub_item = claim.getTarget()
-                    sub_item.get()
-                    print sub_item.labels['en']
-                    # sub_item = pywikibot.ItemPage(repo, claim.getTarget())
-            print "OCCUPATION END"
-
-            print "DISCOGS ARTIST ID PROP START"
-            if item.claims.has_key(DISCOGS_ARTIST_ID_PROP):
-                for claim in item.claims[DISCOGS_ARTIST_ID_PROP]:
-                    sub_item = claim.getTarget()
-                    sub_item.get()
-                    print sub_item.labels["en"]
-            print "DISCOGS ARTIST ID PROP END"
-
-            print item.claims
-            if item.claims.has_key(OCCUPATION_PROP):
-                print item.claims[OCCUPATION_PROP][0].getTarget()
-            else:
-                print "No occupation found"
-            print item.getID()
-            print item.sitelinks
-            print "\n----\n"
+            update_item(item, artist, wd_site, repo)
 
     elif len(items) > 1:
         #check homonymity
@@ -211,12 +292,6 @@ def check_artist(artist, wd_site, repo):
     else:
         print "error"
 
-
-
-    # page = pywikibot.Page(wd_site, member.name.strip())
-    # item = pywikibot.ItemPage(repo, "Q33011")
-    # item = pywikibot.ItemPage.fromPage(page)
-    # print item.get()
 
 if __name__ == "__main__":
 
@@ -226,31 +301,12 @@ if __name__ == "__main__":
     temp_artists = artists[45:50]
 
 
-    # wiki_site = pywikibot.Site("en", "wikipedia")
-    # page = pywikibot.Page(wiki_site, u'James Johnston')
-    # item = pywikibot.ItemPage.fromPage(page)
-    # #
-    # print_dict(item.get())
-    # print "\n\t" + str(item.claims["P31"][0].getTarget())
-    # print "\n----\n"
-    #
-    # print "Gotcha!"
-    # print item.claims['P106'][0]
-
     wd_site = pywikibot.Site('wikidata', 'wikidata')
     repo = wd_site.data_repository()
-    # item = pywikibot.ItemPage(repo, 'Q42')
-
-    # item.get()
-    #
-    # print item.labels
 
     for artist in temp_artists:
         check_artist(artist, wd_site, repo)
 
-    # clm = item.claims["P17"][0]
-    #
-    # clm.changeTarget(pywikibot.ItemPage(repo, "Q232"))
 
 
 
