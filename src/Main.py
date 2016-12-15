@@ -186,6 +186,10 @@ def create_item(wd_site, repo, artist):
                 new_item.addClaim(new_group_claim,
                                   summary="CLAIM [{}:{}]".format(HAS_PART_OF_PROP, new_group_item.getID()))
 
+                new_member_claim = pywikibot.Claim(repo, HAS_PART_OF_PROP)
+                new_member_claim.setTarget(new_item)
+                new_group_item.addClaim(new_member_claim)
+
                 # get_artist = check_artist_discogs(group)
                 # if get_artist is not None
                 # update_item(new_group_item, get_artist, wd_site, repo)
@@ -216,6 +220,10 @@ def create_item(wd_site, repo, artist):
                 new_member_claim.setTarget(new_member_item)
                 new_item.addClaim(new_member_claim,
                                   summary="CLAIM [{}:{}]".format(HAS_PART_OF_PROP, new_member_item.getID()))
+
+                new_group_claim = pywikibot.Claim(repo, MEMBER_OF_PROP)
+                new_group_claim.setTarget(new_item)
+                new_member_item.addClaim(new_group_claim)
 
                 # get_artist = check_artist_discogs(member)
                 # if get_artist is not None
