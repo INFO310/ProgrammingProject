@@ -139,7 +139,8 @@ def read_xml_artists(filename):
             if new_artist is not None and elem.tag == 'artist':
 
                 if new_artist.data_quality is not None and "Complete and Correct" in new_artist.data_quality:
-                    artists.append(new_artist)
+                    if not new_artist.profile or "DO NOT USE" not in new_artist.profile:
+                        artists.append(new_artist)
                 new_artist = None
             elif new_artist is not None and elem.tag == 'aliases':
                 is_alias = False
