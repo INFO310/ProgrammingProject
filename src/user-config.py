@@ -2,4 +2,4 @@
 
 family = 'wikidata'
 mylang = 'test'
-usernames['wikidata']['test'] = 'Ocram89'
+usernames['wikidata']['test'] = 'AndreaNocera'

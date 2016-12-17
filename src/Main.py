@@ -14,6 +14,8 @@ HAS_PART_OF_PROP = "P17429" # The correct property for wikidata is"P527"
 DATE_OF_BIRTH_PROP = "P569"
 DISCOGS_ARTIST_ID_PROP = "P17427" # The correct property for wikidata is "P1953"
 
+occupations = ["writer", "singer", "composer", "guitarist", "musician", "bassist", "drummer", "songwriter", "pianist"]
+
 user_agent = 'INFO310Project/0.1'
 user_token = 'JHLqrbdwbuolTUfCpmMuaiuZqLbDXBuJcdTBHNtG'
 
@@ -55,7 +57,20 @@ def get_member_sparql(member):
 
 
 def get_occupation(artist):
-    return None
+
+    profile = artist.profile
+    artistOccupations = []
+
+    for occupation in occupations:
+        if (profile.find(occupation, beg=0, end=len(profile)) > 0):
+            artistOccupations.add(occupation)
+        else:
+            print "Occupation not inserted"
+
+    if len(artistOccupations) > 0:
+        return artistOccupations
+    else:
+        return None
 
 
 def update_item(item, artist, wd_site, repo):
@@ -127,7 +142,6 @@ def update_item(item, artist, wd_site, repo):
 
     # Adding occupation of the artist
     if not item.claims.has_key(OCCUPATION_PROP):
-
         # This return the item associated with the new occupation of the artist
         occupation = get_occupation(artist)
         if occupation is not None:
