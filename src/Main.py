@@ -143,12 +143,13 @@ def update_item(item, artist, wd_site, repo):
     # Adding occupation of the artist
     if not item.claims.has_key(OCCUPATION_PROP):
         # This return the item associated with the new occupation of the artist
-        occupation = get_occupation(artist)
-        if occupation is not None:
+        occupations = get_occupation(artist)
+        if occupations is not None:
 
-            new_occupation_claim = pywikibot.Claim(repo, OCCUPATION_PROP)
-            new_occupation_claim.setTarget(occupation)
-            item.addClaim(new_occupation_claim)
+            for occupation in occupations:
+                new_occupation_claim = pywikibot.Claim(repo, OCCUPATION_PROP)
+                new_occupation_claim.setTarget(occupation)
+                item.addClaim(new_occupation_claim)
 
     # Adding discogs id of the artist
     if artist.id and not item.claims.has_key(DISCOGS_ARTIST_ID_PROP):
