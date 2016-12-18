@@ -14,7 +14,8 @@ HAS_PART_OF_PROP = "P17429" # The correct property for wikidata is"P527"
 DATE_OF_BIRTH_PROP = "P569"
 DISCOGS_ARTIST_ID_PROP = "P17427" # The correct property for wikidata is "P1953"
 
-occupations = ["writer", "singer", "composer", "guitarist", "musician", "bassist", "drummer", "songwriter", "pianist"]
+#listOccupations = {"writer":"Q36180", "singer":"Q177220", "composer":"Q36834", "guitarist":"Q855091", "musician":"Q639669", "bassist":"Q584301", "drummer":"Q386854", "songwriter":"Q753110", "pianist":"Q486748"}
+listOccupations = {"writer":"Q36737", "singer":"Q36738", "composer":"Q36739", "guitarist":"Q36740", "musician":"Q36741", "bassist":"Q36742", "drummer":"Q36743", "songwriter":"Q36744", "pianist":"Q36745"}
 
 user_agent = 'INFO310Project/0.1'
 user_token = 'JHLqrbdwbuolTUfCpmMuaiuZqLbDXBuJcdTBHNtG'
@@ -61,11 +62,12 @@ def get_occupation(artist):
     profile = artist.profile
     artistOccupations = []
 
-    for occupation in occupations:
-        if (profile.find(occupation, beg=0, end=len(profile)) > 0):
-            artistOccupations.add(occupation)
+    for occupation in listOccupations.keys():
+        if (profile.find(occupation) > 0):
+            artistOccupations.append(occupation)
+            print "Occupation added "+occupation
         else:
-            print "Occupation not inserted"
+            print "Occupation not added"
 
     if len(artistOccupations) > 0:
         return artistOccupations
@@ -148,7 +150,7 @@ def update_item(item, artist, wd_site, repo):
 
             for occupation in occupations:
                 new_occupation_claim = pywikibot.Claim(repo, OCCUPATION_PROP)
-                new_occupation_claim.setTarget(occupation)
+                new_occupation_claim.setTarget(pywikibot.ItemPage(repo, listOccupations[occupation]))
                 item.addClaim(new_occupation_claim)
 
     # Adding discogs id of the artist
@@ -257,6 +259,16 @@ def create_item(wd_site, repo, artist):
                 new_group_claim.setTarget(new_item)
                 member_item.addClaim(new_group_claim)
 
+    # This return the item associated with the new occupation of the artist
+    occupations = get_occupation(artist)
+    if occupations is not None:
+
+        for occupation in occupations:
+            new_occupation_claim = pywikibot.Claim(repo, OCCUPATION_PROP)
+            new_occupation_claim.setTarget(pywikibot.ItemPage(repo, listOccupations[occupation]))
+            new_item.addClaim(new_occupation_claim)
+
+
     if artist.profile:
         try:
             new_item.editDescriptions({"en": artist.profile})
@@ -281,6 +293,27 @@ def print_dict(dictionary, level=0):
             print_dict(value, (level + 1))
         else:
             print tabs + unicode(key) + ": " + unicode(value)
+
+
+def check_homonymity(artist, items):
+
+    for item in items:
+        description = item.get()['description']
+        artistOccupations = []
+
+        #check for occupations in description of wikidata result
+        for occupation in listOccupations:
+            if (description.find(occupation, beg=0, end=len(description)) > 0):
+                artistOccupations.append(occupation)
+            else:
+                print "Occupation not inserted"
+
+        if len(artistOccupations) > 0:
+            return item
+
+    #no items compatible with occupations scearched
+    return None
+
 
 
 def check_artist(artist, wd_site, repo):
@@ -318,7 +351,7 @@ def check_artist(artist, wd_site, repo):
             except pywikibot.NoPage:
                 print "Item not existing on test.wikidata"
 
-    # print items
+    print items
 
     if len(items) == 0:
         print "Page for " + artist.name + " does not exists"
@@ -326,11 +359,16 @@ def check_artist(artist, wd_site, repo):
     elif len(items) == 1:
         for item in items:
             # update item if needed
+            print "Page found for "+artist.name
             update_item(item, artist, wd_site, repo)
 
     elif len(items) > 1:
         #check homonymity
         print "check homonymity"
+        selected_item = check_homonymity(artist, items)
+        if selected_item is not None:
+            update_item(selected_item, artist, wd_site, repo)
+
     else:
         print "error"
 
@@ -340,7 +378,7 @@ if __name__ == "__main__":
     xml_dump_file_name = 'partial_cc_artists_1.xml'
 
     artists = read_xml_artists(xml_dump_file_name)
-    temp_artists = artists[5:25]
+    temp_artists = artists[40:60]
 
     wd_site = pywikibot.Site('test', 'wikidata')
     repo = wd_site.data_repository()
