@@ -63,7 +63,7 @@ def get_occupation(artist):
     artistOccupations = []
 
     for occupation in listOccupations.keys():
-        if (profile.find(occupation) > 0):
+        if (profile.find(occupation) != -1):
             artistOccupations.append(occupation)
             print "Occupation added "+occupation
         else:
@@ -298,17 +298,28 @@ def print_dict(dictionary, level=0):
 def check_homonymity(artist, items):
 
     for item in items:
-        description = item.get()['description']
+        #print item.get()
+        description = item.descriptions["en"]
+        #print description
         artistOccupations = []
 
         #check for occupations in description of wikidata result
         for occupation in listOccupations:
-            if (description.find(occupation, beg=0, end=len(description)) > 0):
+            if (description.find(occupation) != -1):
                 artistOccupations.append(occupation)
             else:
                 print "Occupation not inserted"
 
-        if len(artistOccupations) > 0:
+        checkDiscogs = 0
+        #print artistOccupations
+        #print artist.profile
+        for artistOcc in artistOccupations:
+            if (artist.profile.find(artistOcc) != -1):
+                print artistOcc
+                checkDiscogs += 1
+
+        if checkDiscogs > 0:
+            #print description
             return item
 
     #no items compatible with occupations scearched
@@ -378,7 +389,7 @@ if __name__ == "__main__":
     xml_dump_file_name = 'partial_cc_artists_1.xml'
 
     artists = read_xml_artists(xml_dump_file_name)
-    temp_artists = artists[40:60]
+    temp_artists = artists[0:1]
 
     wd_site = pywikibot.Site('test', 'wikidata')
     repo = wd_site.data_repository()
